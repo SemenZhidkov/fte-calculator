@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор ШЕ (Штатные Единицы)</title>
+    <style>
+        :root {
+            /* Фирменные цвета */
+            --primary: rgb(139, 197, 64);
+            --primary-hover: rgb(120, 175, 50);
+            --dark: rgb(47, 68, 78);
+            --gray-light: #f4f7f6;
+            --border: #e2e8f0;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--gray-light);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Шапка */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--white);
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .bank-logo {
+            height: 40px; /* Аккуратный размер логотипа */
+            width: auto;
+            object-fit: contain;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--dark);
+            border-left: 2px solid var(--border);
+            padding-left: 20px;
+        }
+
+        /* Основная сетка */
+        .grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .header h1 { border-left: none; padding-left: 0; border-top: 2px solid var(--border); padding-top: 15px; width: 100%; }
+        }
+
+        /* Карточки */
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        /* Форма */
+        .form-group { margin-bottom: 16px; }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text-main);
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(139, 197, 64, 0.1);
+        }
+
+        /* Кнопки */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        
+        .btn-secondary { background-color: var(--gray-light); color: var(--text-main); border: 1px solid var(--border); }
+        .btn-secondary:hover { background-color: #e2e8f0; }
+
+        .btn-outline { background-color: transparent; color: var(--text-muted); font-size: 13px; padding: 6px 12px; border: 1px solid var(--border); }
+        .btn-outline:hover { background-color: #fee2e2; color: #ef4444; border-color: #fca5a5; }
+
+        .btn-export { background-color: var(--dark); color: white; font-size: 13px; padding: 6px 12px; }
+        .btn-export:hover { background-color: #1e293b; }
+
+        /* Инлайн блок результата */
+        .inline-result {
+            margin-top: 20px;
+            padding: 16px;
+            background-color: rgba(139, 197, 64, 0.1);
+            border: 1px solid rgba(139, 197, 64, 0.3);
+            border-radius: 8px;
+            text-align: center;
+            display: none; /* Скрыт по умолчанию */
+        }
+        .inline-result.active { display: block; }
+        .inline-result span { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+        .inline-result strong { display: block; font-size: 28px; color: var(--dark); font-weight: 700; line-height: 1; }
+
+        .info-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 16px;
+            padding: 10px;
+            background: var(--gray-light);
+            border-radius: 6px;
+        }
+
+        /* Таблица */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: var(--gray-light);
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        tr:hover td { background-color: rgba(0,0,0,0.01); }
+
+        .she-badge {
+            background-color: rgba(139, 197, 64, 0.15);
+            color: var(--dark);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div class="header-left">
+            <img src="dom_rf_bank_logo_gor_black.jpg" alt="ДОМ.РФ" class="bank-logo" onerror="this.style.display='none';">
+            <h1>Калькулятор ШЕ</h1>
+        </div>
+        <div style="font-size: 13px; color: var(--text-muted);">Инструмент оценки штатной численности</div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-header">
+                <h2>Параметры операции</h2>
+            </div>
+            
+            <div class="form-group">
+                <label for="opName">Название операции</label>
+                <input type="text" id="opName" placeholder="Например: проверка пасспорта" autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label for="opTime">Время на 1 операцию (в минутах)</label>
+                <input type="number" id="opTime" placeholder="0.0" step="0.1" min="0">
+            </div>
+
+            <div class="form-group">
+                <label for="opCount">Количество операций в год</label>
+                <input type="number" id="opCount" value="1000" min="1">
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-primary" onclick="calculate()">Рассчитать</button>
+                <button class="btn-secondary" onclick="clearForm()">Сбросить</button>
+            </div>
+
+            <div class="inline-result" id="resultBlock">
+                <span>Итоговая потребность:</span>
+                <strong id="resultValue">0.0000 ШЕ</strong>
+            </div>
+
+            <div class="info-text">
+                Расчет базируется на ФРВ = 115 200 мин/год<br>(48 раб. недель × 40 часов)
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>История расчетов</h2>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-export" id="exportBtn" onclick="exportCSV()" style="display: none;">Скачать CSV</button>
+                    <button class="btn-outline" id="clearHistoryBtn" onclick="clearHistory()" style="display: none;">Очистить всё</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="historyTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Операция</th>
+                            <th>Время (мин)</th>
+                            <th>Объем в год</th>
+                            <th>Итог ШЕ</th>
+                            <th style="width: 50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+                <div id="emptyState" class="empty-state">
+                    История пуста. Сделайте первый расчет.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const WORK_MINUTES_YEAR = 115200; // 48 недель * 40 часов * 60 мин
+    let historyData = JSON.parse(localStorage.getItem('sheHistory')) || [];
+
+    // Инициализация при загрузке
+    document.addEventListener('DOMContentLoaded', () => {
+        renderTable();
+        // Добавляем поддержку клавиши Enter
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') calculate();
+            });
+        });
+    });
+
+    function calculate() {
+        const nameInput = document.getElementById('opName');
+        const timeInput = document.getElementById('opTime');
+        const countInput = document.getElementById('opCount');
+
+        const name = nameInput.value.trim() || 'Без названия';
+        const time = parseFloat(timeInput.value);
+        const count = parseInt(countInput.value);
+
+        if (isNaN(time) || time <= 0) {
+            alert('Укажите корректное время операции.');
+            timeInput.focus();
+            return;
+        }
+        if (isNaN(count) || count <= 0) {
+            alert('Укажите корректное количество операций.');
+            countInput.focus();
+            return;
+        }
+
+        // Логика
+        const she = (time * count) / WORK_MINUTES_YEAR;
+        const formattedShe = she.toFixed(4);
+
+        // Показ результата
+        document.getElementById('resultValue').innerText = `${formattedShe} ШЕ`;
+        document.getElementById('resultBlock').classList.add('active');
+
+        // Сохранение в историю (в начало)
+        const record = {
+            id: Date.now(),
+            name: name,
+            time: time,
+            count: count,
+            she: formattedShe,
+            date: new Date().toLocaleString('ru-RU')
+        };
+        
+        historyData.unshift(record);
+        if (historyData.length > 50) historyData.pop(); // Храним только последние 50 расчетов
+        
+        localStorage.setItem('sheHistory', JSON.stringify(historyData));
+        renderTable();
+    }
+
+    function renderTable() {
+        const table = document.getElementById('historyTable');
+        const tbody = document.getElementById('tableBody');
+        const emptyState = document.getElementById('emptyState');
+        const exportBtn = document.getElementById('exportBtn');
+        const clearBtn = document.getElementById('clearHistoryBtn');
+
+        if (historyData.length === 0) {
+            table.style.display = 'none';
+            emptyState.style.display = 'block';
+            exportBtn.style.display = 'none';
+            clearBtn.style.display = 'none';
+            return;
+        }
+
+        table.style.display = 'table';
+        emptyState.style.display = 'none';
+        exportBtn.style.display = 'block';
+        clearBtn.style.display = 'block';
+        tbody.innerHTML = '';
+
+        historyData.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${escapeHtml(item.name)}</strong><br><span style="font-size:11px; color:#64748b;">${item.date}</span></td>
+                <td>${item.time}</td>
+                <td>${item.count.toLocaleString('ru-RU')}</td>
+                <td><span class="she-badge">${item.she}</span></td>
+                <td><button class="btn-outline" style="border:none; padding: 4px; font-size: 16px; cursor: pointer;" onclick="deleteRow(${item.id})" title="Удалить">×</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function deleteRow(id) {
+        historyData = historyData.filter(item => item.id !== id);
+        localStorage.setItem('sheHistory', JSON.stringify(historyData));
+        renderTable();
+    }
+
+    function clearHistory() {
+        if(confirm('Точно удалить всю историю расчетов?')) {
+            historyData = [];
+            localStorage.removeItem('sheHistory');
+            renderTable();
+            document.getElementById('resultBlock').classList.remove('active');
+        }
+    }
+
+    function clearForm() {
+        document.getElementById('opName').value = '';
+        document.getElementById('opTime').value = '';
+        document.getElementById('opCount').value = '1000';
+        document.getElementById('resultBlock').classList.remove('active');
+        document.getElementById('opName').focus();
+    }
+
+    function exportCSV() {
+        let csv = '\uFEFF"Операция";"Время (мин)";"Количество";"ШЕ";"Дата"\n';
+        
+        historyData.forEach(row => {
+            const name = escapeHtml(row.name).replace(/"/g, '""');
+            const time = String(row.time).replace('.', ',');
+            const she = String(row.she).replace('.', ',');
+            csv += `"${name}";"${time}";"${row.count}";"${she}";"${row.date}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Расчет_ШЕ_${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+</body>
+</html>
