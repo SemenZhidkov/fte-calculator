@@ -52,7 +52,7 @@
         }
 
         .bank-logo {
-            height: 40px; /* Аккуратный размер логотипа */
+            height: 40px;
             width: auto;
             object-fit: contain;
         }
@@ -113,7 +113,7 @@
             color: var(--text-muted);
         }
 
-        input {
+        input, select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
@@ -121,9 +121,11 @@
             font-size: 14px;
             color: var(--text-main);
             transition: border-color 0.2s;
+            background-color: var(--white);
+            font-family: inherit;
         }
 
-        input:focus {
+        input:focus, select:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(139, 197, 64, 0.1);
@@ -167,7 +169,7 @@
             border: 1px solid rgba(139, 197, 64, 0.3);
             border-radius: 8px;
             text-align: center;
-            display: none; /* Скрыт по умолчанию */
+            display: none;
         }
         .inline-result.active { display: block; }
         .inline-result span { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
@@ -244,7 +246,16 @@
             
             <div class="form-group">
                 <label for="opName">Название операции</label>
-                <input type="text" id="opName" placeholder="Например: проверка пасспорта" autocomplete="off">
+                <input type="text" id="opName" placeholder="Например: проверка паспорта" autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label for="calcPeriod">Период расчета</label>
+                <select id="calcPeriod">
+                    <option value="year">Год (ФРВ: 115 200 мин)</option>
+                    <option value="quarter">Квартал (ФРВ: 28 800 мин)</option>
+                    <option value="month">Месяц (ФРВ: 9 600 мин)</option>
+                </select>
             </div>
 
             <div class="form-group">
@@ -253,8 +264,13 @@
             </div>
 
             <div class="form-group">
-                <label for="opCount">Количество операций в год</label>
+                <label for="opCount">Объем операций за выбранный период</label>
                 <input type="number" id="opCount" value="1000" min="1">
+            </div>
+
+            <div class="form-group">
+                <label for="absenteeism">Коэффициент абсентеизма (%)</label>
+                <input type="number" id="absenteeism" placeholder="10" value="10" min="0" max="100" step="0.1" title="Отпуска, больничные и т.д.">
             </div>
 
             <div class="btn-group">
@@ -268,7 +284,7 @@
             </div>
 
             <div class="info-text">
-                Расчет базируется на ФРВ = 115 200 мин/год<br>(48 раб. недель × 40 часов)
+                Формула: ((Время × Объем) + % Абсентеизма) / ФРВ периода
             </div>
         </div>
 
@@ -286,8 +302,10 @@
                     <thead>
                         <tr>
                             <th>Операция</th>
+                            <th>Период</th>
                             <th>Время (мин)</th>
-                            <th>Объем в год</th>
+                            <th>Объем</th>
+                            <th>Абсентеизм</th>
                             <th>Итог ШЕ</th>
                             <th style="width: 50px;"></th>
                         </tr>
@@ -303,15 +321,28 @@
 </div>
 
 <script>
-    const WORK_MINUTES_YEAR = 115200; // 48 недель * 40 часов * 60 мин
-    let historyData = JSON.parse(localStorage.getItem('sheHistory')) || [];
+    // Фонд рабочего времени (ФРВ) в минутах для разных периодов
+    const WORK_MINUTES = {
+        year: 115200,   // 48 недель * 40 часов
+        quarter: 28800, // Год / 4
+        month: 9600     // Год / 12
+    };
+
+    const PERIOD_LABELS = {
+        year: 'Год',
+        quarter: 'Квартал',
+        month: 'Месяц'
+    };
+
+    // Используем новый ключ, чтобы старая версия истории не сломала новую логику
+    let historyData = JSON.parse(localStorage.getItem('sheHistoryV2')) || [];
 
     // Инициализация при загрузке
     document.addEventListener('DOMContentLoaded', () => {
         renderTable();
         // Добавляем поддержку клавиши Enter
-        document.querySelectorAll('input').forEach(input => {
-            input.addEventListener('keypress', (e) => {
+        document.querySelectorAll('input, select').forEach(element => {
+            element.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') calculate();
             });
         });
@@ -319,12 +350,16 @@
 
     function calculate() {
         const nameInput = document.getElementById('opName');
+        const periodInput = document.getElementById('calcPeriod');
         const timeInput = document.getElementById('opTime');
         const countInput = document.getElementById('opCount');
+        const absInput = document.getElementById('absenteeism');
 
         const name = nameInput.value.trim() || 'Без названия';
+        const periodKey = periodInput.value;
         const time = parseFloat(timeInput.value);
         const count = parseInt(countInput.value);
+        const absenteeism = parseFloat(absInput.value) || 0;
 
         if (isNaN(time) || time <= 0) {
             alert('Укажите корректное время операции.');
@@ -336,9 +371,18 @@
             countInput.focus();
             return;
         }
+        if (absenteeism < 0 || absenteeism > 100) {
+            alert('Коэффициент абсентеизма должен быть от 0 до 100%.');
+            absInput.focus();
+            return;
+        }
 
-        // Логика
-        const she = (time * count) / WORK_MINUTES_YEAR;
+        // Логика расчета
+        const baseTimeNeeded = time * count;
+        const timeWithAbsenteeism = baseTimeNeeded * (1 + (absenteeism / 100));
+        const periodFrv = WORK_MINUTES[periodKey];
+        
+        const she = timeWithAbsenteeism / periodFrv;
         const formattedShe = she.toFixed(4);
 
         // Показ результата
@@ -349,8 +393,10 @@
         const record = {
             id: Date.now(),
             name: name,
+            periodName: PERIOD_LABELS[periodKey],
             time: time,
             count: count,
+            absenteeism: absenteeism,
             she: formattedShe,
             date: new Date().toLocaleString('ru-RU')
         };
@@ -358,7 +404,7 @@
         historyData.unshift(record);
         if (historyData.length > 50) historyData.pop(); // Храним только последние 50 расчетов
         
-        localStorage.setItem('sheHistory', JSON.stringify(historyData));
+        localStorage.setItem('sheHistoryV2', JSON.stringify(historyData));
         renderTable();
     }
 
@@ -387,8 +433,10 @@
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>${escapeHtml(item.name)}</strong><br><span style="font-size:11px; color:#64748b;">${item.date}</span></td>
+                <td><span style="font-size:13px; color:#64748b;">${item.periodName}</span></td>
                 <td>${item.time}</td>
                 <td>${item.count.toLocaleString('ru-RU')}</td>
+                <td>${item.absenteeism}%</td>
                 <td><span class="she-badge">${item.she}</span></td>
                 <td><button class="btn-outline" style="border:none; padding: 4px; font-size: 16px; cursor: pointer;" onclick="deleteRow(${item.id})" title="Удалить">×</button></td>
             `;
@@ -398,14 +446,14 @@
 
     function deleteRow(id) {
         historyData = historyData.filter(item => item.id !== id);
-        localStorage.setItem('sheHistory', JSON.stringify(historyData));
+        localStorage.setItem('sheHistoryV2', JSON.stringify(historyData));
         renderTable();
     }
 
     function clearHistory() {
         if(confirm('Точно удалить всю историю расчетов?')) {
             historyData = [];
-            localStorage.removeItem('sheHistory');
+            localStorage.removeItem('sheHistoryV2');
             renderTable();
             document.getElementById('resultBlock').classList.remove('active');
         }
@@ -413,20 +461,24 @@
 
     function clearForm() {
         document.getElementById('opName').value = '';
+        document.getElementById('calcPeriod').value = 'year';
         document.getElementById('opTime').value = '';
         document.getElementById('opCount').value = '1000';
+        document.getElementById('absenteeism').value = '0';
         document.getElementById('resultBlock').classList.remove('active');
         document.getElementById('opName').focus();
     }
 
     function exportCSV() {
-        let csv = '\uFEFF"Операция";"Время (мин)";"Количество";"ШЕ";"Дата"\n';
+        let csv = '\uFEFF"Операция";"Период";"Время (мин)";"Количество";"Абсентеизм (%)";"ШЕ";"Дата"\n';
         
         historyData.forEach(row => {
             const name = escapeHtml(row.name).replace(/"/g, '""');
+            const period = row.periodName;
             const time = String(row.time).replace('.', ',');
+            const abs = String(row.absenteeism).replace('.', ',');
             const she = String(row.she).replace('.', ',');
-            csv += `"${name}";"${time}";"${row.count}";"${she}";"${row.date}"\n`;
+            csv += `"${name}";"${period}";"${time}";"${row.count}";"${abs}";"${she}";"${row.date}"\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
